@@ -503,7 +503,7 @@ public partial class Movie : IObject
 			while (instance != null) {
 				if (instance.IsMovie()) {
 					Movie movie = (Movie)instance;
-					movie.PostExec(progressing);
+					movie.PostExec(progressing && m_playing);
 					if (!m_hasButton && movie.m_hasButton)
 						m_hasButton = true;
 				}
@@ -521,7 +521,7 @@ public partial class Movie : IObject
 				m_detachedMovies.Clear();
 				foreach (Movie movie in m_attachedMovieList.Values) {
 					if (movie != null) {
-						movie.PostExec(progressing);
+						movie.PostExec(progressing && m_playing);
 						if (!m_hasButton && movie.m_hasButton)
 							m_hasButton = true;
 					}
@@ -640,6 +640,11 @@ public partial class Movie : IObject
 	{
 		if (!m_active)
 			return;
+
+		
+		if (this.totalFrames == 0) {
+				m_active = true;
+		}
 
 		bool matrixChanged;
 		bool colorTransformChanged;
