@@ -57,7 +57,7 @@ if not exist "%CURDIR%\Assets\Standard Assets\LWF\renderer" (
 	mklink /j "%CURDIR%\Assets\Standard Assets\LWF\renderer" "%BASEDIR%\csharp\unity\renderer"
 )
 if not exist "%CURDIR%\Assets\Standard Assets\LWF\wrapper" ( 
-	mklink /j "%CURDIR%\Assets\Standard Assets\LWF\wrapper" "%BASEDIR%\csharp\unity\renderer"
+	mklink /j "%CURDIR%\Assets\Standard Assets\LWF\wrapper" "%BASEDIR%\csharp\unity\wrapper"
 )
 
 
