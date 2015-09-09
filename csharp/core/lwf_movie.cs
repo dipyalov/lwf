@@ -341,226 +341,258 @@ public partial class Movie : IObject
 		base.Exec(matrixId, colorTransformId);
 	}
 
-	public void PostExec(bool progressing)
-	{
-		m_hasButton = false;
-		if (!m_active)
-			return;
+		public void PostExec(bool progressing, bool force)
+		{
+			m_hasButton = false;
+			if (!m_active)
+				return;
 
-		m_execedFrame = -1;
-		bool postExeced = m_postExecCount == m_lwf.execCount;
-		if (progressing && m_playing && !m_jumped && !postExeced)
-			++m_currentFrameInternal;
-		for (;;) {
-			if (m_currentFrameInternal < 0 ||
-					m_currentFrameInternal >= m_totalFrames)
-				m_currentFrameInternal = 0;
-			if (m_currentFrameInternal == m_execedFrame)
-				break;
+			m_execedFrame = -1;
+			bool postExeced = m_postExecCount == m_lwf.execCount;
+			if (force || progressing && m_playing && !m_jumped && !postExeced)
+				++m_currentFrameInternal;
+			for (;;)
+			{
+				if (m_currentFrameInternal < 0 ||
+						m_currentFrameInternal >= m_totalFrames)
+					m_currentFrameInternal = 0;
+				if (m_currentFrameInternal == m_execedFrame)
+					break;
 
-			m_currentFrameCurrent = m_currentFrameInternal;
-			m_execedFrame = m_currentFrameCurrent;
-			Data data = m_lwf.data;
-			Format.Frame frame = data.frames[
-				m_data.frameOffset + m_currentFrameCurrent];
+				m_currentFrameCurrent = m_currentFrameInternal;
+				m_execedFrame = m_currentFrameCurrent;
+				Data data = m_lwf.data;
+				Format.Frame frame = data.frames[
+					m_data.frameOffset + m_currentFrameCurrent];
 
-			int controlAnimationOffset;
-			IObject instance;
+				int controlAnimationOffset;
+				IObject instance;
 
-			if (m_lastControlOffset == frame.controlOffset &&
-					m_lastControls == frame.controls) {
+				if (m_lastControlOffset == frame.controlOffset &&
+						m_lastControls == frame.controls)
+				{
 
-				controlAnimationOffset = m_lastControlAnimationOffset;
+					controlAnimationOffset = m_lastControlAnimationOffset;
 
-				if (m_skipped) {
-					instance = m_instanceHead;
-					while (instance != null) {
-						if (instance.IsMovie()) {
-							Movie movie = (Movie)instance;
-							movie.m_attachMovieExeced = false;
-							movie.m_attachMoviePostExeced = false;
-						} else if (instance.IsButton()) {
-							((Button)instance).EnterFrame();
-						}
-						instance = instance.linkInstance;
-					}
-					m_hasButton = m_lastHasButton;
-				} else {
-					for (int dlDepth = 0; dlDepth < m_data.depths; ++dlDepth) {
-						Object obj = m_displayList[dlDepth];
-						if (obj != null) {
-							if (!postExeced) {
-								obj.matrixIdChanged = false;
-								obj.colorTransformIdChanged = false;
-							}
-							if (obj.IsMovie()) {
-								Movie movie = (Movie)obj;
+					if (m_skipped)
+					{
+						instance = m_instanceHead;
+						while (instance != null)
+						{
+							if (instance.IsMovie())
+							{
+								Movie movie = (Movie)instance;
 								movie.m_attachMovieExeced = false;
 								movie.m_attachMoviePostExeced = false;
-							} else if (obj.IsButton()) {
-								((Button)obj).EnterFrame();
-								m_hasButton = true;
+							}
+							else if (instance.IsButton())
+							{
+								((Button)instance).EnterFrame();
+							}
+							instance = instance.linkInstance;
+						}
+						m_hasButton = m_lastHasButton;
+					}
+					else
+					{
+						for (int dlDepth = 0; dlDepth < m_data.depths; ++dlDepth)
+						{
+							Object obj = m_displayList[dlDepth];
+							if (obj != null)
+							{
+								if (!postExeced)
+								{
+									obj.matrixIdChanged = false;
+									obj.colorTransformIdChanged = false;
+								}
+								if (obj.IsMovie())
+								{
+									Movie movie = (Movie)obj;
+									movie.m_attachMovieExeced = false;
+									movie.m_attachMoviePostExeced = false;
+								}
+								else if (obj.IsButton())
+								{
+									((Button)obj).EnterFrame();
+									m_hasButton = true;
+								}
 							}
 						}
+						m_lastHasButton = m_hasButton;
+						m_skipped = true;
 					}
+
+				}
+				else
+				{
+					++m_movieExecCount;
+					m_instanceHead = null;
+					m_instanceTail = null;
+					m_lastControlOffset = frame.controlOffset;
+					m_lastControls = frame.controls;
+					controlAnimationOffset = -1;
+					for (int i = 0; i < frame.controls; ++i)
+					{
+						Format.Control control =
+							data.controls[frame.controlOffset + i];
+
+						switch ((Format.Control.Type)control.controlType)
+						{
+							case Format.Control.Type.MOVE:
+								{
+									Format.Place p =
+										data.places[control.controlId];
+									ExecObject(p.depth, p.objectId,
+										p.matrixId, 0, p.instanceId, p.blendMode);
+								}
+								break;
+
+							case Format.Control.Type.MOVEM:
+								{
+									Format.ControlMoveM ctrl =
+										data.controlMoveMs[control.controlId];
+									Format.Place p = data.places[ctrl.placeId];
+									ExecObject(p.depth, p.objectId,
+										ctrl.matrixId, 0, p.instanceId, p.blendMode);
+								}
+								break;
+
+							case Format.Control.Type.MOVEC:
+								{
+									Format.ControlMoveC ctrl =
+										data.controlMoveCs[control.controlId];
+									Format.Place p = data.places[ctrl.placeId];
+									ExecObject(p.depth, p.objectId, p.matrixId,
+										ctrl.colorTransformId, p.instanceId,
+										p.blendMode);
+								}
+								break;
+
+							case Format.Control.Type.MOVEMC:
+								{
+									Format.ControlMoveMC ctrl =
+										data.controlMoveMCs[control.controlId];
+									Format.Place p = data.places[ctrl.placeId];
+									ExecObject(p.depth, p.objectId, ctrl.matrixId,
+										ctrl.colorTransformId, p.instanceId,
+										p.blendMode);
+								}
+								break;
+
+							case Format.Control.Type.MOVEMCB:
+								{
+									Format.ControlMoveMCB ctrl =
+										data.controlMoveMCBs[control.controlId];
+									Format.Place p = data.places[ctrl.placeId];
+									ExecObject(p.depth, p.objectId, ctrl.matrixId,
+										ctrl.colorTransformId, p.instanceId,
+										ctrl.blendMode, true);
+								}
+								break;
+
+							case Format.Control.Type.ANIMATION:
+								if (controlAnimationOffset == -1)
+									controlAnimationOffset = i;
+								break;
+						}
+					}
+
+					m_lastControlAnimationOffset = controlAnimationOffset;
 					m_lastHasButton = m_hasButton;
-					m_skipped = true;
-				}
 
-			} else {
-				++m_movieExecCount;
-				m_instanceHead = null;
-				m_instanceTail = null;
-				m_lastControlOffset = frame.controlOffset;
-				m_lastControls = frame.controls;
-				controlAnimationOffset = -1;
-				for (int i = 0; i < frame.controls; ++i) {
-					Format.Control control =
-						data.controls[frame.controlOffset + i];
-
-					switch ((Format.Control.Type)control.controlType) {
-					case Format.Control.Type.MOVE:
+					for (int dlDepth = 0; dlDepth < m_data.depths; ++dlDepth)
+					{
+						Object obj = m_displayList[dlDepth];
+						if (obj != null && obj.execCount != m_movieExecCount)
 						{
-							Format.Place p =
-								data.places[control.controlId];
-							ExecObject(p.depth, p.objectId,
-								p.matrixId, 0, p.instanceId, p.blendMode);
+							if (m_texts != null && obj.IsText())
+								EraseText(obj.objectId);
+							obj.Destroy();
+							m_displayList[dlDepth] = null;
 						}
-						break;
-
-					case Format.Control.Type.MOVEM:
-						{
-							Format.ControlMoveM ctrl =
-								data.controlMoveMs[control.controlId];
-							Format.Place p = data.places[ctrl.placeId];
-							ExecObject(p.depth, p.objectId,
-								ctrl.matrixId, 0, p.instanceId, p.blendMode);
-						}
-						break;
-
-					case Format.Control.Type.MOVEC:
-						{
-							Format.ControlMoveC ctrl =
-								data.controlMoveCs[control.controlId];
-							Format.Place p = data.places[ctrl.placeId];
-							ExecObject(p.depth, p.objectId, p.matrixId,
-								ctrl.colorTransformId, p.instanceId,
-								p.blendMode);
-						}
-						break;
-
-					case Format.Control.Type.MOVEMC:
-						{
-							Format.ControlMoveMC ctrl =
-								data.controlMoveMCs[control.controlId];
-							Format.Place p = data.places[ctrl.placeId];
-							ExecObject(p.depth, p.objectId, ctrl.matrixId,
-								ctrl.colorTransformId, p.instanceId,
-								p.blendMode);
-						}
-						break;
-
-					case Format.Control.Type.MOVEMCB:
-						{
-							Format.ControlMoveMCB ctrl =
-								data.controlMoveMCBs[control.controlId];
-							Format.Place p = data.places[ctrl.placeId];
-							ExecObject(p.depth, p.objectId, ctrl.matrixId,
-								ctrl.colorTransformId, p.instanceId,
-								ctrl.blendMode, true);
-						}
-						break;
-
-					case Format.Control.Type.ANIMATION:
-						if (controlAnimationOffset == -1)
-							controlAnimationOffset = i;
-						break;
 					}
 				}
 
-				m_lastControlAnimationOffset = controlAnimationOffset;
-				m_lastHasButton = m_hasButton;
-
-				for (int dlDepth = 0; dlDepth < m_data.depths; ++dlDepth) {
-					Object obj = m_displayList[dlDepth];
-					if (obj != null && obj.execCount != m_movieExecCount) {
-						if (m_texts != null && obj.IsText())
-							EraseText(obj.objectId);
-						obj.Destroy();
-						m_displayList[dlDepth] = null;
-					}
+				m_attachMovieExeced = true;
+				if (m_attachedMovies != null)
+				{
+					foreach (Movie movie in m_attachedMovieList.Values)
+						if (movie != null)
+							movie.Exec();
 				}
-			}
 
-			m_attachMovieExeced = true;
-			if (m_attachedMovies != null) {
-				foreach (Movie movie in m_attachedMovieList.Values)
-					if (movie != null)
-						movie.Exec();
-			}
-
-			instance = m_instanceHead;
-			while (instance != null) {
-				if (instance.IsMovie()) {
-					Movie movie = (Movie)instance;
-					movie.PostExec(progressing && m_playing);
-					if (!m_hasButton && movie.m_hasButton)
-						m_hasButton = true;
-				}
-				instance = instance.linkInstance;
-			}
-
-			m_attachMoviePostExeced = true;
-			if (m_attachedMovies != null) {
-				foreach (KeyValuePair<string, bool> kvp in m_detachedMovies) {
-					string attachName = kvp.Key;
-					Movie movie;
-					if (m_attachedMovies.TryGetValue(attachName, out movie))
-						DeleteAttachedMovie(this, movie, true, false);
-				}
-				m_detachedMovies.Clear();
-				foreach (Movie movie in m_attachedMovieList.Values) {
-					if (movie != null) {
-						movie.PostExec(progressing && m_playing);
+				instance = m_instanceHead;
+				while (instance != null)
+				{
+					if (instance.IsMovie())
+					{
+						Movie movie = (Movie)instance;
+						movie.PostExec(progressing && m_playing, force);
 						if (!m_hasButton && movie.m_hasButton)
 							m_hasButton = true;
 					}
+					instance = instance.linkInstance;
 				}
-			}
 
-			if (m_attachedLWFs != null)
-				m_hasButton = true;
+				m_attachMoviePostExeced = true;
+				if (m_attachedMovies != null)
+				{
+					foreach (KeyValuePair<string, bool> kvp in m_detachedMovies)
+					{
+						string attachName = kvp.Key;
+						Movie movie;
+						if (m_attachedMovies.TryGetValue(attachName, out movie))
+							DeleteAttachedMovie(this, movie, true, false);
+					}
+					m_detachedMovies.Clear();
+					foreach (Movie movie in m_attachedMovieList.Values)
+					{
+						if (movie != null)
+						{
+							movie.PostExec(progressing && m_playing, force);
+							if (!m_hasButton && movie.m_hasButton)
+								m_hasButton = true;
+						}
+					}
+				}
 
-			if (!m_postLoaded) {
-				m_postLoaded = true;
+				if (m_attachedLWFs != null)
+					m_hasButton = true;
+
+				if (!m_postLoaded)
+				{
+					m_postLoaded = true;
 #if LWF_USE_LUA
 				if (m_isRoot && !String.IsNullOrEmpty(m_rootPostLoadFunc))
 					lwf.CallFunctionLua(m_rootPostLoadFunc, this);
 				if (m_postLoadFunc != String.Empty)
 					lwf.CallFunctionLua(m_postLoadFunc, this);
 #endif
-				if (!m_handler.Empty())
-					m_handler.Call(EventType.POSTLOAD, this);
-			}
+					if (!m_handler.Empty())
+						m_handler.Call(EventType.POSTLOAD, this);
+				}
 
-			if (controlAnimationOffset != -1 &&
-					m_execedFrame == m_currentFrameInternal) {
-				bool animationPlayed = m_animationPlayedFrame ==
-					m_currentFrameCurrent && !m_jumped;
-				if (!animationPlayed) {
-					for (int i = controlAnimationOffset;
-							i < frame.controls; ++i) {
-						Format.Control control =
-							data.controls[frame.controlOffset + i];
-						m_lwf.PlayAnimation(control.controlId, this);
+				if (controlAnimationOffset != -1 &&
+						m_execedFrame == m_currentFrameInternal)
+				{
+					bool animationPlayed = m_animationPlayedFrame ==
+						m_currentFrameCurrent && !m_jumped;
+					if (!animationPlayed)
+					{
+						for (int i = controlAnimationOffset;
+								i < frame.controls; ++i)
+						{
+							Format.Control control =
+								data.controls[frame.controlOffset + i];
+							m_lwf.PlayAnimation(control.controlId, this);
+						}
 					}
 				}
-			}
 
-			m_animationPlayedFrame = m_currentFrameCurrent;
-			if (m_currentFrameCurrent == m_currentFrameInternal)
-				m_jumped = false;
-		}
+				m_animationPlayedFrame = m_currentFrameCurrent;
+				if (m_currentFrameCurrent == m_currentFrameInternal)
+					m_jumped = false;
+			}
 
 #if LWF_USE_LUA
 		if (m_isRoot && !String.IsNullOrEmpty(m_rootEnterFrameFunc))
@@ -568,13 +600,28 @@ public partial class Movie : IObject
 		if (m_enterFrameFunc != String.Empty)
 			lwf.CallFunctionLua(m_enterFrameFunc, this);
 #endif
-		PlayAnimation(ClipEvent.ENTERFRAME);
-		if (!m_handler.Empty())
-			m_handler.Call(EventType.ENTERFRAME, this);
-		m_postExecCount = m_lwf.execCount;
-	}
+			PlayAnimation(ClipEvent.ENTERFRAME);
+			if (!m_handler.Empty())
+				m_handler.Call(EventType.ENTERFRAME, this);
+			m_postExecCount = m_lwf.execCount;
+		}
 
-	public bool ExecAttachedLWF(float tick, float currentProgress)
+		public void StepFrames(int count)
+		{
+			if (count <= 0)
+			{
+				return;
+			}
+
+			for (int i = 0; i < count; i++)
+			{
+				Exec();
+				PostExec(true, true);
+			}
+			m_jumped = true;
+		}
+
+		public bool ExecAttachedLWF(float tick, float currentProgress)
 	{
 		bool hasButton = false;
 		for (IObject instance = m_instanceHead; instance != null;

@@ -449,7 +449,7 @@ public partial class LWF
 			if (!m_executedForExecDisabled) {
 				++m_execCount;
 				m_rootMovie.Exec();
-				m_rootMovie.PostExec(true);
+				m_rootMovie.PostExec(true, false);
 				m_executedForExecDisabled = true;
 				execed = true;
 			}
@@ -484,7 +484,7 @@ public partial class LWF
 				m_progress -= m_tick;
 				++m_execCount;
 				m_rootMovie.Exec();
-				m_rootMovie.PostExec(progressing);
+				m_rootMovie.PostExec(progressing, false);
 				execed = true;
 				if (!m_frameSkip)
 					break;

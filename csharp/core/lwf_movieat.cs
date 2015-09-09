@@ -133,7 +133,7 @@ public partial class Movie : IObject
 		if (m_attachMovieExeced)
 			movie.Exec();
 		if (m_attachMoviePostExeced)
-			movie.PostExec(true);
+			movie.PostExec(true, false);
 
 		return AttachMovieInternal(movie, attachName, attachDepth, reorder);
 	}

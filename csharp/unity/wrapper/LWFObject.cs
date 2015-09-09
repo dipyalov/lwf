@@ -61,6 +61,7 @@ public class LWFObject : MonoBehaviour
 	public LWF.UnityRenderer.Factory factory;
 	public LWF.CombinedMeshRenderer.Factory combinedMeshRendererfactory;
 	[HideInInspector] [NonSerialized] public bool isAlive;
+	public float timeFactor = 1.0f;
 
 	public string sortingLayerName {
 		get {return mSortingLayerName;}
@@ -158,7 +159,13 @@ public class LWFObject : MonoBehaviour
 			inputCamera = Camera.main;
 
 		if (texturePrefix == null)
-			texturePrefix = Path.GetDirectoryName(path) + "/";
+		{
+			texturePrefix = Path.GetDirectoryName(path);
+			if (!string.IsNullOrEmpty(texturePrefix))
+			{
+				texturePrefix += "/";
+			}
+        }
 		if (lwfLoadCallback != null)
 			lwfLoadCallbacks.Add(lwfLoadCallback);
 		if (lwfDestroyCallback != null)
@@ -386,7 +393,7 @@ public class LWFObject : MonoBehaviour
 			}
 		}
 
-		UpdateLWF(Time.deltaTime, pointX, pointY, press, release);
+		UpdateLWF(this.timeFactor * Time.deltaTime, pointX, pointY, press, release);
 	}
 
 	public void SetText(
