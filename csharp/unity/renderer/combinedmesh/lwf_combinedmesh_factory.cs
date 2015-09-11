@@ -33,11 +33,18 @@ public class CombinedMeshBuffer
 {
 	public Vector3[] vertices;
 	public Vector2[] uv;
+	public Vector2[] uv2;
 	public int[] triangles;
 	public Color32[] colors32;
 	public int index;
 	public bool modified;
 	public bool initialized;
+
+	public void AllocUV2(int n)
+	{
+		uv2 = new Vector2[n * 4];
+		modified = true;
+	}
 
 	public void Alloc(int n)
 	{
@@ -47,7 +54,7 @@ public class CombinedMeshBuffer
 		colors32 = new Color32[n * 4];
 		index = 0;
 		modified = true;
-		initialized = true;
+		initialized = true;		
 
 		for (int i = 0, j = 0; i < triangles.Length; i += 6, j += 4) {
 			triangles[i + 0] = j + 0;
@@ -156,16 +163,20 @@ public class CombinedMeshComponent : MonoBehaviour
 		gameObject.SetActive(false);
 	}
 
-	public void UpdateMesh()
+	public void UpdateMesh(System.Func<Vector3, Vector2> calcUV2)
 	{
 		gameObject.SetActive(true);
 
 		if (buffer.vertices == null ||
 				buffer.vertices.Length / 4 != rectangleCount) {
-			buffer.Alloc(rectangleCount);
+			buffer.Alloc(rectangleCount);			
 		} else {
 			buffer.index = 0;
 		}
+
+		if (calcUV2 != null && (buffer.uv2 == null || buffer.uv2.Length / 4 != rectangleCount))
+			buffer.AllocUV2(rectangleCount);
+
 
 		for (int i = 0; i < rendererCount; ++i)
 			renderers[i].UpdateMesh(buffer);
@@ -179,6 +190,14 @@ public class CombinedMeshComponent : MonoBehaviour
 			mesh.uv = buffer.uv;
 			mesh.triangles = buffer.triangles;
 			mesh.colors32 = buffer.colors32;
+
+			if (calcUV2 != null) {				
+				for (int i = 0; i < buffer.vertices.Length; i++) {
+					buffer.uv2[i] = calcUV2(buffer.vertices[i]);
+				}
+				mesh.uv2 = buffer.uv2;
+			}
+
 			mesh.RecalculateBounds();
 		}
 
@@ -201,6 +220,9 @@ public class CombinedMeshComponent : MonoBehaviour
 public partial class Factory : UnityRenderer.Factory
 {
 	public int updateCount;
+
+	public System.Func<Vector3, Vector2> calcUV2;	
+
 	private int meshComponentNo;
 	private int usedMeshComponentNo;
 	private List<CombinedMeshComponent> meshComponents;
@@ -318,7 +340,7 @@ public partial class Factory : UnityRenderer.Factory
 		}
 
 		for (int i = 0; i <= meshComponentNo; ++i)
-			meshComponents[i].UpdateMesh();
+			meshComponents[i].UpdateMesh(calcUV2);
 
 		for (int i = meshComponentNo + 1; i <= usedMeshComponentNo; ++i)
 			meshComponents[i].Disable();
