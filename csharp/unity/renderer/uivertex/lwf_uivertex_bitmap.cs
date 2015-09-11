@@ -117,7 +117,7 @@ public class BitmapContext
 
 		m_material = ResourceCache.SharedInstance().LoadTexture(
 			data.name, m_textureName, texture.format,
-			factory.useAdditionalColor, factory.textureLoader,
+			factory.useAdditionalColor, factory.materialBuilder, factory.textureLoader,
 			factory.textureUnloader, factory.shaderName);
 		if (factory.renderQueueOffset != 0)
 			m_material.renderQueue += factory.renderQueueOffset;

@@ -42,6 +42,7 @@ public partial class Factory : IRendererFactory
 	public int blendMode;
 	public int maskMode;
 	public bool useAdditionalColor;
+	public MaterialBuilder materialBuilder;
 	public TextureLoader textureLoader;
 	public TextureUnloader textureUnloader;
 	public string shaderName;
@@ -50,6 +51,7 @@ public partial class Factory : IRendererFactory
 	protected Factory(Data d, GameObject gObj, float zOff, float zR, int rQOff,
 		string sLayerName, int sOrder, bool uAC, Camera renderCam,
 		Camera inputCam, string texturePrfx = "", string fontPrfx = "",
+		MaterialBuilder materialBldr = null,
 		TextureLoader textureLdr = null, TextureUnloader textureUnldr = null, string shrName = "LWF")
 	{
 		data = d;
@@ -64,6 +66,7 @@ public partial class Factory : IRendererFactory
 		inputCamera = inputCam;
 		texturePrefix = texturePrfx;
 		fontPrefix = fontPrfx;
+		materialBuilder = materialBldr;
 		textureLoader = textureLdr;
 		textureUnloader = textureUnldr;
 		shaderName = shrName;

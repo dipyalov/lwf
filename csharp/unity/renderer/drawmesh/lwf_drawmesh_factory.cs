@@ -33,11 +33,12 @@ public partial class Factory : UnityRenderer.Factory
 			string sLayerName = null, int sOrder = 0, bool uAC = false,
 			Camera renderCam = null, Camera inputCam = null,
 			string texturePrfx = "", string fontPrfx = "",
+			UnityRenderer.MaterialBuilder materialBldr = null,
 			TextureLoader textureLdr = null,
 			TextureUnloader textureUnldr = null,
 			string shaderName = "LWF")
 		: base(d, gObj, zOff, zR, rQOff, sLayerName, sOrder, uAC, renderCam,
-			inputCam, texturePrfx, fontPrfx, textureLdr, textureUnldr, shaderName)
+			inputCam, texturePrfx, fontPrfx, materialBldr, textureLdr, textureUnldr, shaderName)
 	{
 		CreateBitmapContexts();
 		CreateTextContexts();

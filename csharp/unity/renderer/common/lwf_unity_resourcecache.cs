@@ -50,16 +50,31 @@ using RenderedMeshCache = System.Collections.Generic.Dictionary<
 namespace LWF {
 namespace UnityRenderer {
 
+		public struct MaterialBuildResult
+		{
+			public Material material;
+			public TextureUnloader unloader;
+			public string[] extraMaterialTextures;
+		}
+			
+		public delegate MaterialBuildResult MaterialBuilder(string lwfName, string filename, Format.Constant format, bool useAdditionalColor, TextureLoader textureLoader, string shaderName);
+
 public class TextureContext
 {
 	public UnityEngine.Material material;
 	public TextureUnloader unloader;
+	public int[] extraTextureProperties;
 
-	public TextureContext(UnityEngine.Material m, TextureUnloader u)
+	public TextureContext(UnityEngine.Material m, TextureUnloader u, string[] extraTextureProperties)
 	{
-		material = m;
+		material = m;				
 		unloader = u;
-	}
+		if (extraTextureProperties != null)	{
+			this.extraTextureProperties = new int[extraTextureProperties.Length];
+			for (int i = 0; i < extraTextureProperties.Length; i++)
+				this.extraTextureProperties[i] = Shader.PropertyToID(extraTextureProperties[i]);
+		}		
+    }
 }
 
 public class MeshContext
@@ -95,6 +110,7 @@ public class ResourceCache
 {
 	private static ResourceCache s_instance;
 	private LWFDataLoader m_lwfDataLoader;
+	private MaterialBuilder m_materialBuilder;
 	private TextureLoader m_textureLoader;
 	private TextureUnloader m_textureUnloader;
 	private LWFDataCache m_lwfDataCache;
@@ -124,10 +140,12 @@ public class ResourceCache
 
 	public void SetLoader(
 		LWFDataLoader lwfDataLoader = null,
+		MaterialBuilder materialBuilder = null,
 		TextureLoader textureLoader = null,
 		TextureUnloader textureUnloader = null)
 	{
 		m_lwfDataLoader = lwfDataLoader;
+		m_materialBuilder = materialBuilder;
 		m_textureLoader = textureLoader;
 		m_textureUnloader = textureUnloader;
 
@@ -141,6 +159,9 @@ public class ResourceCache
 				return asset.bytes;
 			};
 		}
+
+		if (m_materialBuilder == null)
+			m_materialBuilder = BuildDefaultMaterial;
 
 		if (m_textureLoader == null) {
 			m_textureLoader = (filename) => {
@@ -193,21 +214,46 @@ public class ResourceCache
 		}
 	}
 
+
 	public Material LoadTexture(string lwfName, string filename, int format,
-		bool useAdditionalColor, TextureLoader textureLoader = null,
+		bool useAdditionalColor, MaterialBuilder materialBuilder = null, TextureLoader textureLoader = null,
 		TextureUnloader textureUnloader = null, string shaderName = "LWF")
 	{
 		TextureItem item;
 		string cacheName = lwfName + "/" + filename;
 		if (!m_textureCache.TryGetValue(cacheName, out item)) {
-			Shader shader = GetShader(shaderName);
-			Material material = new Material(shader);
-			if (useAdditionalColor)
-				material.EnableKeyword("ENABLE_ADD_COLOR");
-			material.SetInt("BlendEquation", (int)BlendOp.Add);
+			if (materialBuilder == null) 
+				materialBuilder = m_materialBuilder;
+			if (textureLoader == null)
+				textureLoader = m_textureLoader;
+			if (textureUnloader == null)
+				textureUnloader = m_textureUnloader;
 
-			int blendModeSrc;
-			switch ((Format.Constant)format) {
+			var buildResult = materialBuilder(lwfName, filename, (Format.Constant)format, useAdditionalColor, textureLoader, shaderName);				
+			if (buildResult.unloader != null)
+			{
+				textureUnloader = buildResult.unloader;
+			}
+			
+			TextureContext context = new TextureContext(buildResult.material, textureUnloader, buildResult.extraMaterialTextures);
+			item = new TextureItem(context);
+			m_textureCache[cacheName] = item;
+		}
+		item.Ref();
+		return item.Entity().material;
+	}
+
+	private MaterialBuildResult BuildDefaultMaterial(string lwfName, string filename, Format.Constant format, bool useAdditionalColor, TextureLoader textureLoader, string shaderName)
+	{
+		Shader shader = GetShader(shaderName);
+		Material material = new Material(shader);
+		if (useAdditionalColor)
+			material.EnableKeyword("ENABLE_ADD_COLOR");
+		material.SetInt("BlendEquation", (int)BlendOp.Add);
+
+		int blendModeSrc;
+		switch (format)
+		{
 			default:
 			case Format.Constant.TEXTUREFORMAT_NORMAL:
 				blendModeSrc = (int)BlendMode.SrcAlpha;
@@ -216,28 +262,23 @@ public class ResourceCache
 			case Format.Constant.TEXTUREFORMAT_PREMULTIPLIEDALPHA:
 				blendModeSrc = (int)BlendMode.One;
 				break;
-			}
-			material.SetInt("BlendModeSrc", blendModeSrc);
-			material.SetInt("BlendModeDst", (int)BlendMode.OneMinusSrcAlpha);
-
-			if (textureLoader == null)
-				textureLoader = m_textureLoader;
-
-			material.mainTexture = textureLoader(filename);
-			if (material.mainTexture != null) {
-				material.mainTexture.name =
-					string.Format("LWF/{0}/{1}", lwfName, filename);
-				material.name = material.mainTexture.name;
-			}
-			material.color = new UnityEngine.Color(1, 1, 1, 1);
-
-			TextureContext context = new TextureContext(material,
-				textureUnloader == null ? m_textureUnloader : textureUnloader);
-			item = new TextureItem(context);
-			m_textureCache[cacheName] = item;
 		}
-		item.Ref();
-		return item.Entity().material;
+		material.SetInt("BlendModeSrc", blendModeSrc);
+		material.SetInt("BlendModeDst", (int)BlendMode.OneMinusSrcAlpha);
+		
+		material.mainTexture = textureLoader(filename);
+		if (material.mainTexture != null)
+		{
+			material.mainTexture.name =
+				string.Format("LWF/{0}/{1}", lwfName, filename);
+			material.name = material.mainTexture.name;
+		}
+		material.color = new UnityEngine.Color(1, 1, 1, 1);
+
+		return new MaterialBuildResult
+		{
+			material = material
+		};
 	}
 
 	public static Material CreateBlendMaterial(
@@ -293,6 +334,16 @@ public class ResourceCache
 				TextureContext context = item.Entity();
 				if (context.material.mainTexture != null)
 					context.unloader((Texture2D)context.material.mainTexture);
+
+				var props = context.extraTextureProperties;
+				if (props != null) {
+					for (int i = 0; i < props.Length; i++) {
+						var tex = context.material.GetTexture(props[i]);
+						if (tex)
+							context.unloader((Texture2D)tex);
+					}
+				}
+
 				if (!Application.isEditor)
 					Material.Destroy(context.material);
 				m_textureCache.Remove(cacheName);

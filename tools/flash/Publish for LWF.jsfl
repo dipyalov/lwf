@@ -84,6 +84,7 @@ function main()
 	var items = lib.items;
 	var movies = 0;
 	var buttons = 0;
+	var bitmaps = 0;
 	var libitems = [];
 	for (var i = 0; i < items.length; ++i) {
 		var item = items[i];
@@ -101,9 +102,15 @@ function main()
 		var item = libitems[i];
 
 		switch (item.itemType) {
-		case "bitmap":
+		case "bitmap":			
 			item.compressionType = "lossless";
 			var name = item.name;
+			
+			name = item.name.replace(/\//g, "_");
+			if (name.match(/[^0-9a-zA-Z_]/) !== null) {
+				name = "bmp" + bitmaps++;
+			}
+			
 			if (name.match(/\.(gif|jpg|jpeg|png)$/i) === null)
 				name += ".png";
 			name = name.replace(/(_rgb_[0-9a-f]{6}|_rgb_[0-9]+,[0-9]+,[0-9]+|_rgba_[0-9a-f]{8}|_rgba_[0-9]+,[0-9]+,[0-9]+,[0-9]+|_add_[0-9a-f]{6}|_add_[0-9]+,[0-9]+,[0-9]+)\/([^\/]+)\.(gif|jpg|jpeg|png)$/i, "$2$1.$3").replace(/\//g, "_");
